@@ -1,18 +1,18 @@
 {
     "display_information": {
-        "name": "AskLLM",
+        "name": "Afridi's Droid",
         "description": "AI Nerd | Thinks in Transformers, Speaks in Markdown",
         "background_color": "#0abe3e"
     },
     "features": {
         "bot_user": {
-            "display_name": "AskLLM",
+            "display_name": "Afridi's Droid",
             "always_online": true
         }
     },
     "oauth_config": {
         "redirect_urls": [
-            "https://5df9-2402-e280-212e-d-28a1-d830-8a75-2db3.ngrok-free.app/auth/slack/callback"
+            "https://###/auth/slack/callback"
         ],
         "scopes": {
             "bot": [
@@ -23,7 +23,7 @@
     },
     "settings": {
         "event_subscriptions": {
-            "request_url": "https://5df9-2402-e280-212e-d-28a1-d830-8a75-2db3.ngrok-free.app/slack/events",
+            "request_url": "https://###/slack/events",
             "bot_events": [
                 "app_mention"
             ]
