@@ -12,7 +12,7 @@
     },
     "oauth_config": {
         "redirect_urls": [
-            "https://###/auth/slack/callback"
+            "https://slack-backend-oauth.onrender.com/auth/slack/callback"
         ],
         "scopes": {
             "bot": [
@@ -23,7 +23,7 @@
     },
     "settings": {
         "event_subscriptions": {
-            "request_url": "https://###/slack/events",
+            "request_url": "https://slack-backend-oauth.onrender.com/slack/events",
             "bot_events": [
                 "app_mention"
             ]

@@ -19,9 +19,9 @@ app.use(
   })
 );
 
-app.get('/ping', (req, res) => {
+app.get('/', (req, res) => {
 
-  res.json({ "Ping": "Pong" });
+  res.send({ "Ping": "Pong" });
 
 })
 
