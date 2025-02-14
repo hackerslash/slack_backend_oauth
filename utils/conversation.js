@@ -1,23 +1,4 @@
 // utils/conversation.js
-// const { redisClient } = require('../config/db');
-
-// async function getConversation(key) {
-//   const data = await redisClient.get(key);
-//   return data ? JSON.parse(data) : [];
-// }
-
-// async function saveConversation(key, messages) {
-//   // Save the last 5 messages
-//   await redisClient.set(key, JSON.stringify(messages.slice(-5)));
-// }
-
-// module.exports = {
-//   getConversation,
-//   saveConversation,
-// };
-
-
-// utils/conversation.js
 const { redisClient } = require('../config/db');
 
 async function getConversation(key) {
