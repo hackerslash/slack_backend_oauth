@@ -1,0 +1,132 @@
+// routes/slack.js
+const express = require('express');
+const axios = require('axios');
+const bodyParser = require('body-parser');
+const verifySlackRequest = require('../middleware/verifySlackRequest');
+const { getConversation, saveConversation } = require('../utils/conversation');
+const { getBotToken } = require('../utils/botToken');
+const { GROQ_API_KEY } = require('../config/env');
+
+const router = express.Router();
+
+// Use raw body parser middleware for Slack events
+router.use(bodyParser.raw({ type: 'application/json' }));
+
+router.post('/events', async (req, res) => {
+    try {
+        verifySlackRequest(req);
+    } catch (error) {
+        console.error('Verification failed:', error.message);
+        return res.status(400).send();
+    }
+
+    const body = JSON.parse(req.body.toString());
+
+    // URL verification challenge
+    if (body.type === 'url_verification') {
+        return res.status(200).json({ challenge: body.challenge });
+    }
+
+    // Process events
+    if (body.type === 'event_callback') {
+        const event = body.event;
+        const teamId = body.team_id;
+
+        try {
+            const botToken = await getBotToken(teamId);
+            if (!botToken) {
+                console.error('No bot token found for team:', teamId);
+                return res.status(401).send();
+            }
+
+            if (event.type === 'app_mention' && !event.bot_id) {
+                // Inside the app_mention handler
+                const channelId = event.channel;
+                const threadTs = event.thread_ts || event.ts;
+                const conversationKey = `conversation:${channelId}:${threadTs}`;
+
+                // Clean and store user message
+                const cleaned_text = event.text.replace(/^<@[A-Z0-9]+>\s*/, '');
+                await saveConversation(conversationKey, {
+                    role: 'user',
+                    content: cleaned_text,
+                    timestamp: event.ts,
+                });
+
+                // Retrieve updated conversation history
+                const messages = await getConversation(conversationKey);
+
+                // Prepare chat messages with system prompt
+                const systemMessage = {
+                    role: 'system',
+                    content: "You are a Slack chatbot specialized in programming troubleshooting, dont enterntain any other requests that is not related to programming and software dev"
+                };
+                const chatMessages = [systemMessage, ...messages.map(m => ({
+                    role: m.role,
+                    content: m.content
+                }))];
+
+                console.log(chatMessages);
+
+                // Request LLM response
+                let llmResponse;
+                try {
+                    llmResponse = await axios.post(
+                        'https://api.groq.com/openai/v1/chat/completions',
+                        {
+                            model: 'llama-3.1-8b-instant',
+                            messages: chatMessages,
+                        },
+                        {
+                            headers: {
+                                Authorization: `Bearer ${GROQ_API_KEY}`,
+                                'Content-Type': 'application/json',
+                            },
+                        }
+                    );
+                } catch (err) {
+                    console.error('LLM API error:', err.response?.data || err);
+                    return res.status(500).send();
+                }
+
+                // Store and send assistant response
+                const botReply = llmResponse.data.choices[0].message.content;
+                await saveConversation(conversationKey, {
+                    role: 'assistant',
+                    content: botReply,
+                    timestamp: Date.now(),
+                });
+
+                const replyText = `<@${event.user}> ${botReply}`;
+
+
+                // Post response back to Slack
+                try {
+                    await axios.post(
+                        'https://slack.com/api/chat.postMessage',
+                        {
+                            channel: channelId,
+                            thread_ts: threadTs,
+                            text: replyText,
+                        },
+                        {
+                            headers: {
+                                Authorization: `Bearer ${botToken}`,
+                                'Content-Type': 'application/json',
+                            },
+                        }
+                    );
+                } catch (err) {
+                    console.error('Slack API error:', err.response?.data || err);
+                }
+            }
+        } catch (err) {
+            console.error('Database error:', err);
+            return res.status(500).send();
+        }
+    }
+
+    res.status(200).send();
+});
+
+module.exports = router;

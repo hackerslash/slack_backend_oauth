@@ -1,0 +1,2 @@
+    await connectDB();
+    await connectRedis();
