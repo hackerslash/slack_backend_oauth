@@ -11,4 +11,5 @@ module.exports = {
     MONGODB_URI: process.env.MONGODB_URI,
     SESSION_SECRET: process.env.SESSION_SECRET,
     NODE_ENV: process.env.NODE_ENV || 'development',
+    REDIS_URL: process.env.REDIS_URL
 };
