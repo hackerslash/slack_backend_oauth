@@ -19,6 +19,12 @@ app.use(
   })
 );
 
+app.get('/ping', (req, res) => {
+
+  res.json({ "Ping": "Pong" });
+
+})
+
 // Mount routes
 app.use('/auth', oauthRoutes);
 app.use('/slack', slackRoutes);
