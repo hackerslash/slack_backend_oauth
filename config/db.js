@@ -1,9 +1,9 @@
 // config/db.js
 const mongoose = require('mongoose');
 const { createClient } = require('redis');
-const { MONGODB_URI } = require('./env');
+const { MONGODB_URI, REDIS_URL } = require('./env');
 
-const redisClient = createClient({ url: 'redis://localhost:6379' });
+const redisClient = createClient({ url: REDIS_URL });
 
 async function connectDB() {
   try {
