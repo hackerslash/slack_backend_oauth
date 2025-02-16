@@ -18,7 +18,11 @@ Made as per the requirement of recruitment assignment of Doctor Droid. A YC back
 
 ## Overview
 
-This Slack app handles Slack OAuth installation, processes events (like `app_mention`), and utilizes a Large Language Model (LLM) to answer programming-related queries. It is structured in a modular way separating configuration, middleware, models, routes, and utility functions.
+This Slack app handles Slack OAuth installation, processes events (`app_mention`), and utilizes a Large Language Model (LLM) to answer programming-related queries. It is structured in a modular way separating configuration, middleware, models, routes, and utility functions.
+
+## System Architecture
+
+![System Design](./assets/sysarc.png)
 
 ## Features
 
