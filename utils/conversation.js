@@ -12,6 +12,10 @@ async function getConversation(key) {
     // Fallback: if not in Redis, try MongoDB
     const conversation = await Conversation.findOne({ conversationKey: key });
     if (conversation) {
+        for (const message of conversation.messages) {
+            await redisClient.rPush(key, JSON.stringify(message));
+        }
+        await redisClient.expire(key, 3600);
         return conversation.messages;
     }
     return [];
@@ -21,8 +25,8 @@ async function addMessage(key, channelId, threadTs, message) {
     // Push the new message to Redis
     await redisClient.rPush(key, JSON.stringify(message));
 
-    // Trim the list to only the last 5 messages
-    await redisClient.lTrim(key, -5, -1);
+    // Trim the list to only the last 5 message pairs 
+    await redisClient.lTrim(key, -10, -1);
 
     // Set the key to expire after 60 minutes (3600 seconds)
     await redisClient.expire(key, 3600);
