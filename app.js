@@ -19,6 +19,7 @@ app.use(
   })
 );
 
+// for testing root route
 app.get('/', (req, res) => {
 
   res.send({ "Ping": "Pong" });
