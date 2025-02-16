@@ -7,11 +7,13 @@ async function getConversation(key) {
     //const data = await redisClient.get(key);
     const items = await redisClient.lRange(key, 0, -1);
     if (items) {
+        console.log('Conversation data retrieved from Redis');
         return items.map(item => JSON.parse(item));
     }
     // Fallback: if not in Redis, try MongoDB
     const conversation = await Conversation.findOne({ conversationKey: key });
     if (conversation) {
+        console.log('Conversation data retrieved from  MongoDB');
         const lastMessages = conversation.messages.slice(-10);
         for (const message of lastMessages) {
             await redisClient.rPush(key, JSON.stringify(message));
