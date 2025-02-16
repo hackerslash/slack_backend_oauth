@@ -1,36 +1,20 @@
+// utils/conversation.js
 const { redisClient } = require('../config/db');
-const BotInstallation = require('../models/BotInstallation');
 
-async function getConversation(teamId) {
-    const cachedConversation = await redisClient.lRange(`conversation:${teamId}`, 0, -1);
-    if (cachedConversation.length > 0) {
-        console.log("Conversation hit from Redis");
-        return cachedConversation.reverse().map(msg => JSON.parse(msg));
-    }
-
-    const installation = await BotInstallation.findOne({ teamId });
-    if (installation && installation.conversations) {
-        const conversation = installation.conversations.map(({ message, timestamp }) => ({ message, timestamp }));
-        await redisClient.rPush(`conversation:${teamId}`, ...conversation.map(conversation => JSON.stringify(conversation)));
-        await redisClient.expire(`conversation:${teamId}`, 3600);
-        return conversation;
-    }
-    return [];
+async function getConversation(key) {
+    // Retrieve messages in reverse chronological order and parse
+    const data = await redisClient.lRange(key, 0, -1);
+    return data.reverse().map(msg => JSON.parse(msg));
 }
-async function addMessageToConversation(teamId, message) {
-    await Promise.all([
-        BotInstallation.findOneAndUpdate(
-            { teamId },
-            { $push: { conversations: { message, timestamp: new Date() } } },
-            { upsert: true }
-        ),
-        redisClient.lPush(`conversation:${teamId}`, JSON.stringify({ message, timestamp: new Date() })),
-        redisClient.lTrim(`conversation:${teamId}`, 0, 99),
-        redisClient.expire(`conversation:${teamId}`, 3600),
-    ]);
+
+async function addMessageToConversation(key, message) {
+    // Push new message to head of list and trim to last 5 messages
+    await redisClient.lPush(key, JSON.stringify(message));
+    await redisClient.lTrim(key, 0, 9); // Keep only first 5 conversation pairs
+    await redisClient.expire(key, 3600);
 }
 
 module.exports = {
     getConversation,
-    saveConversation: addMessageToConversation
+    saveConversation: addMessageToConversation, // Alias for clarity
 };
