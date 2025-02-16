@@ -17,19 +17,22 @@ async function getConversation(key) {
     return [];
 }
 
-async function saveConversation(key, channelId, threadTs, messages) {
-    await redisClient.rPush(key, JSON.stringify(messages));
-    await redisClient.lTrim(key, -5, -1);
-    await redisClient.expire(key, 60 * 30);
+async function addMessage(key, channelId, threadTs, message) {
+    // Push the new message to Redis
+    await redisClient.rPush(key, JSON.stringify(message));
 
-    // Upsert the conversation in MongoDB
+    // Trim the list to only the last 5 messages
+    await redisClient.lTrim(key, -5, -1);
+
+    // Set the key to expire after 60 minutes (3600 seconds)
+    await redisClient.expire(key, 3600);
+
+    // Update MongoDB: push the new message into the messages array.
     await Conversation.findOneAndUpdate(
         { conversationKey: key },
         {
-            conversationKey: key,
-            channelId,
-            threadTs,
-            messages: messages,
+            $push: { messages: message },
+            $set: { channelId, threadTs }
         },
         { upsert: true, new: true }
     );
@@ -37,5 +40,5 @@ async function saveConversation(key, channelId, threadTs, messages) {
 
 module.exports = {
     getConversation,
-    saveConversation,
+    addMessage,
 };

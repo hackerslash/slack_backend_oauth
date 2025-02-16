@@ -3,7 +3,7 @@ const express = require('express');
 const axios = require('axios');
 const bodyParser = require('body-parser');
 const verifySlackRequest = require('../middleware/verifySlackRequest');
-const { getConversation, saveConversation } = require('../utils/conversation');
+const { getConversation, addMessage } = require('../utils/conversation');
 const { getBotToken } = require('../utils/botToken');
 const { GROQ_API_KEY } = require('../config/env');
 
@@ -50,15 +50,12 @@ router.post('/events', async (req, res) => {
 
                 // Clean the user message by removing the bot mention prefix
                 const cleaned_text = event.text.replace(/^<@[A-Z0-9]+>\s*/, '');
-                // Append the user message to the conversation array
-                messages.push({
+                await addMessage(conversationKey, channelId, threadTs, {
                     role: 'user',
                     content: cleaned_text,
                     timestamp: event.ts,
                 });
 
-                // Save the updated conversation to both Redis and MongoDB
-                await saveConversation(conversationKey, channelId, threadTs, messages);
 
                 // Prepare chat messages with system prompt and conversation history
                 const systemMessage = {
@@ -98,15 +95,11 @@ router.post('/events', async (req, res) => {
 
                 // Extract the LLM's reply and update the conversation
                 const botReply = llmResponse.data.choices[0].message.content;
-                // Retrieve the current conversation again in case it was updated elsewhere
-                messages = await getConversation(conversationKey);
-                messages.push({
+                await addMessage(conversationKey, channelId, threadTs, {
                     role: 'assistant',
                     content: botReply,
                     timestamp: Date.now(),
                 });
-                // Save the updated conversation again
-                await saveConversation(conversationKey, channelId, threadTs, messages);
 
                 const replyText = `<@${event.user}> ${botReply}`;
 
