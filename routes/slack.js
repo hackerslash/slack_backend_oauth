@@ -13,123 +13,122 @@ const router = express.Router();
 router.use(bodyParser.raw({ type: 'application/json' }));
 
 router.post('/events', async (req, res) => {
+  try {
+    verifySlackRequest(req);
+  } catch (error) {
+    console.error('Verification failed:', error.message);
+    return res.status(400).send();
+  }
+
+  const body = JSON.parse(req.body.toString());
+
+  // URL verification challenge
+  if (body.type === 'url_verification') {
+    return res.status(200).json({ challenge: body.challenge });
+  }
+
+  // Process events
+  if (body.type === 'event_callback') {
+    const event = body.event;
+    const teamId = body.team_id;
+
     try {
-        verifySlackRequest(req);
-    } catch (error) {
-        console.error('Verification failed:', error.message);
-        return res.status(400).send();
-    }
+      const botToken = await getBotToken(teamId);
+      if (!botToken) {
+        console.error('No bot token found for team:', teamId);
+        return res.status(401).send();
+      }
 
-    const body = JSON.parse(req.body.toString());
+      if (event.type === 'app_mention' && !event.bot_id) {
+        const channelId = event.channel;
+        const threadTs = event.thread_ts || event.ts;
+        const conversationKey = `conversation:${channelId}:${threadTs}`;
 
-    // URL verification challenge
-    if (body.type === 'url_verification') {
-        return res.status(200).json({ challenge: body.challenge });
-    }
+        // Clean the user message (remove the bot mention prefix)
+        const cleanedText = event.text.replace(/^<@[A-Z0-9]+>\s*/, '');
 
-    // Process events
-    if (body.type === 'event_callback') {
-        const event = body.event;
-        const teamId = body.team_id;
+        // Add the user's message to the conversation in Redis and MongoDB
+        await addMessage(conversationKey, channelId, threadTs, {
+          role: 'user',
+          content: cleanedText,
+          timestamp: event.ts,
+        });
 
+        // Retrieve the updated conversation (which now includes the user message)
+        const messages = await getConversation(conversationKey);
+
+        // Prepare chat messages with a system prompt and the updated conversation history
+        const systemMessage = {
+          role: 'system',
+          content: "You are a Slack chatbot specialized in programming troubleshooting, don't entertain any requests that are not related to programming and software development."
+        };
+        const chatMessages = [
+          systemMessage,
+          ...messages.map(m => ({
+            role: m.role,
+            content: m.content
+          }))
+        ];
+
+        // Request LLM response (waiting for the response before proceeding)
+        let llmResponse;
         try {
-            const botToken = await getBotToken(teamId);
-            if (!botToken) {
-                console.error('No bot token found for team:', teamId);
-                return res.status(401).send();
+          llmResponse = await axios.post(
+            'https://api.groq.com/openai/v1/chat/completions',
+            {
+              model: 'llama-3.1-8b-instant',
+              messages: chatMessages,
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${GROQ_API_KEY}`,
+                'Content-Type': 'application/json',
+              },
             }
-
-            if (event.type === 'app_mention' && !event.bot_id) {
-                // Inside the app_mention handler
-                const channelId = event.channel;
-                const threadTs = event.thread_ts || event.ts;
-                const conversationKey = `conversation:${channelId}:${threadTs}`;
-
-                // Retrieve current conversation history (from Redis or MongoDB)
-                let messages = await getConversation(conversationKey);
-
-                // Clean the user message by removing the bot mention prefix
-                const cleaned_text = event.text.replace(/^<@[A-Z0-9]+>\s*/, '');
-                await addMessage(conversationKey, channelId, threadTs, {
-                    role: 'user',
-                    content: cleaned_text,
-                    timestamp: event.ts,
-                });
-
-
-                // Prepare chat messages with system prompt and conversation history
-                const systemMessage = {
-                    role: 'system',
-                    content: "You are a Slack chatbot specialized in programming troubleshooting, don't entertain any requests that are not related to programming and software development."
-                };
-                const chatMessages = [
-                    systemMessage,
-                    ...messages.map(m => ({
-                        role: m.role,
-                        content: m.content
-                    }))
-                ];
-
-                //console.log(chatMessages);
-
-                // Request LLM response
-                let llmResponse;
-                try {
-                    llmResponse = await axios.post(
-                        'https://api.groq.com/openai/v1/chat/completions',
-                        {
-                            model: 'llama-3.1-8b-instant',
-                            messages: chatMessages,
-                        },
-                        {
-                            headers: {
-                                Authorization: `Bearer ${GROQ_API_KEY}`,
-                                'Content-Type': 'application/json',
-                            },
-                        }
-                    );
-                } catch (err) {
-                    console.error('LLM API error:', err.response?.data || err);
-                    return res.status(500).send();
-                }
-
-                // Extract the LLM's reply and update the conversation
-                const botReply = llmResponse.data.choices[0].message.content;
-                await addMessage(conversationKey, channelId, threadTs, {
-                    role: 'assistant',
-                    content: botReply,
-                    timestamp: Date.now(),
-                });
-
-                const replyText = `<@${event.user}> ${botReply}`;
-
-                // Post the response back to Slack
-                try {
-                    await axios.post(
-                        'https://slack.com/api/chat.postMessage',
-                        {
-                            channel: channelId,
-                            thread_ts: threadTs,
-                            text: replyText,
-                        },
-                        {
-                            headers: {
-                                Authorization: `Bearer ${botToken}`,
-                                'Content-Type': 'application/json',
-                            },
-                        }
-                    );
-                } catch (err) {
-                    console.error('Slack API error:', err.response?.data || err);
-                }
-            }
+          );
         } catch (err) {
-            console.error('Database error:', err);
-            return res.status(500).send();
+          console.error('LLM API error:', err.response?.data || err);
+          return res.status(500).send();
         }
-    }
 
-    res.status(200).send();
+        // Extract the LLM's reply and add it to the conversation
+        const botReply = llmResponse.data.choices[0].message.content;
+        await addMessage(conversationKey, channelId, threadTs, {
+          role: 'assistant',
+          content: botReply,
+          timestamp: Date.now(),
+        });
+
+        const replyText = `<@${event.user}> ${botReply}`;
+
+        // Post the assistant's reply back to Slack
+        try {
+          await axios.post(
+            'https://slack.com/api/chat.postMessage',
+            {
+              channel: channelId,
+              thread_ts: threadTs,
+              text: replyText,
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${botToken}`,
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+        } catch (err) {
+          console.error('Slack API error:', err.response?.data || err);
+        }
+      }
+    } catch (err) {
+      console.error('Database error:', err);
+      return res.status(500).send();
+    }
+  }
+
+  // Only respond with 200 after all processing is complete
+  return res.status(200).send();
 });
 
 module.exports = router;

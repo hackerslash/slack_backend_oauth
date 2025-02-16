@@ -12,11 +12,12 @@ async function getConversation(key) {
     // Fallback: if not in Redis, try MongoDB
     const conversation = await Conversation.findOne({ conversationKey: key });
     if (conversation) {
-        for (const message of conversation.messages) {
+        const lastMessages = conversation.messages.slice(-10);
+        for (const message of lastMessages) {
             await redisClient.rPush(key, JSON.stringify(message));
         }
         await redisClient.expire(key, 3600);
-        return conversation.messages;
+        return lastMessages;
     }
     return [];
 }
