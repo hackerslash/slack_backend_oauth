@@ -20,8 +20,10 @@ async function getConversation(key) {
         }
         await redisClient.expire(key, 3600);
         return lastMessages;
+    } else {
+        return [];
     }
-    return [];
+
 }
 
 async function addMessage(key, channelId, threadTs, message) {
