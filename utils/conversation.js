@@ -18,9 +18,8 @@ async function getConversation(key) {
 }
 
 async function saveConversation(key, channelId, threadTs, messages) {
-    // Save the last 5 messages to Redis
-    const truncatedMessages = messages.slice(-5);
-    await redisClient.rPush(key, JSON.stringify(truncatedMessages));
+    await redisClient.rPush(key, JSON.stringify(messages));
+    await redisClient.lTrim(key, -5, -1);
     await redisClient.expire(key, 60 * 30);
 
     // Upsert the conversation in MongoDB
