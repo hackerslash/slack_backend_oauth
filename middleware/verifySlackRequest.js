@@ -2,6 +2,7 @@
 const crypto = require('crypto');
 const { SLACK_SIGNING_SECRET } = require('../config/env');
 
+// boiler 
 function verifySlackRequest(req) {
   const slackSignature = req.headers['x-slack-signature'];
   const slackTimestamp = req.headers['x-slack-request-timestamp'];
