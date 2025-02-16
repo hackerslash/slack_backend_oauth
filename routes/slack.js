@@ -45,26 +45,33 @@ router.post('/events', async (req, res) => {
                 const threadTs = event.thread_ts || event.ts;
                 const conversationKey = `conversation:${channelId}:${threadTs}`;
 
-                // Clean and store user message
+                // Retrieve current conversation history (from Redis or MongoDB)
+                let messages = await getConversation(conversationKey);
+
+                // Clean the user message by removing the bot mention prefix
                 const cleaned_text = event.text.replace(/^<@[A-Z0-9]+>\s*/, '');
-                await saveConversation(conversationKey, {
+                // Append the user message to the conversation array
+                messages.push({
                     role: 'user',
                     content: cleaned_text,
                     timestamp: event.ts,
                 });
 
-                // Retrieve updated conversation history
-                const messages = await getConversation(conversationKey);
+                // Save the updated conversation to both Redis and MongoDB
+                await saveConversation(conversationKey, channelId, threadTs, messages);
 
-                // Prepare chat messages with system prompt
+                // Prepare chat messages with system prompt and conversation history
                 const systemMessage = {
                     role: 'system',
-                    content: "You are a Slack chatbot specialized in programming troubleshooting, dont enterntain any other requests that is not related to programming and software dev"
+                    content: "You are a Slack chatbot specialized in programming troubleshooting, don't entertain any requests that are not related to programming and software development."
                 };
-                const chatMessages = [systemMessage, ...messages.map(m => ({
-                    role: m.role,
-                    content: m.content
-                }))];
+                const chatMessages = [
+                    systemMessage,
+                    ...messages.map(m => ({
+                        role: m.role,
+                        content: m.content
+                    }))
+                ];
 
                 console.log(chatMessages);
 
@@ -89,18 +96,21 @@ router.post('/events', async (req, res) => {
                     return res.status(500).send();
                 }
 
-                // Store and send assistant response
+                // Extract the LLM's reply and update the conversation
                 const botReply = llmResponse.data.choices[0].message.content;
-                await saveConversation(conversationKey, {
+                // Retrieve the current conversation again in case it was updated elsewhere
+                messages = await getConversation(conversationKey);
+                messages.push({
                     role: 'assistant',
                     content: botReply,
                     timestamp: Date.now(),
                 });
+                // Save the updated conversation again
+                await saveConversation(conversationKey, channelId, threadTs, messages);
 
                 const replyText = `<@${event.user}> ${botReply}`;
 
-
-                // Post response back to Slack
+                // Post the response back to Slack
                 try {
                     await axios.post(
                         'https://slack.com/api/chat.postMessage',

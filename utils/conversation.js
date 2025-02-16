@@ -1,20 +1,40 @@
 // utils/conversation.js
 const { redisClient } = require('../config/db');
+const Conversation = require('../models/Conversation');
 
 async function getConversation(key) {
-    // Retrieve messages in reverse chronological order and parse
-    const data = await redisClient.lRange(key, 0, -1);
-    return data.reverse().map(msg => JSON.parse(msg));
+    // Try to retrieve from Redis first
+    const data = await redisClient.get(key);
+    if (data) {
+        return JSON.parse(data);
+    }
+    // Fallback: if not in Redis, try MongoDB
+    const conversation = await Conversation.findOne({ conversationKey: key });
+    if (conversation) {
+        return conversation.messages;
+    }
+    return [];
 }
 
-async function addMessageToConversation(key, message) {
-    // Push new message to head of list and trim to last 5 messages
-    await redisClient.lPush(key, JSON.stringify(message));
-    await redisClient.lTrim(key, 0, 9); // Keep only first 5 conversation pairs
-    await redisClient.expire(key, 3600);
+async function saveConversation(key, channelId, threadTs, messages) {
+    // Save the last 5 messages to Redis
+    const truncatedMessages = messages.slice(-5);
+    await redisClient.set(key, JSON.stringify(truncatedMessages));
+
+    // Upsert the conversation in MongoDB
+    await Conversation.findOneAndUpdate(
+        { conversationKey: key },
+        {
+            conversationKey: key,
+            channelId,
+            threadTs,
+            messages: truncatedMessages,
+        },
+        { upsert: true, new: true }
+    );
 }
 
 module.exports = {
     getConversation,
-    saveConversation: addMessageToConversation, // Alias for clarity
+    saveConversation,
 };
