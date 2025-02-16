@@ -5,14 +5,14 @@ const Conversation = require('../models/Conversation');
 async function getConversation(key) {
     // Try to retrieve from Redis first
     const items = await redisClient.lRange(key, 0, -1);
-    if (items && items.length > 0) {
+    if (items && items.length > 1) {
         console.log('Conversation data retrieved from Redis');
         return items.map(item => JSON.parse(item));
     }
     // Fallback: if not in Redis, try MongoDB
     const conversation = await Conversation.findOne({ conversationKey: key });
     console.log(conversation);
-    if (conversation && conversation.messages && conversation.messages.length > 0) {
+    if (conversation) {
         console.log('Conversation data retrieved from MongoDB');
         const lastMessages = conversation.messages.slice(-10);
         for (const message of lastMessages) {
