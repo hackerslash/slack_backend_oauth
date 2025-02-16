@@ -73,7 +73,7 @@ router.post('/events', async (req, res) => {
                     }))
                 ];
 
-                console.log(chatMessages);
+                //console.log(chatMessages);
 
                 // Request LLM response
                 let llmResponse;

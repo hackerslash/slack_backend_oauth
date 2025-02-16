@@ -4,9 +4,10 @@ const Conversation = require('../models/Conversation');
 
 async function getConversation(key) {
     // Try to retrieve from Redis first
-    const data = await redisClient.get(key);
-    if (data) {
-        return JSON.parse(data);
+    //const data = await redisClient.get(key);
+    const items = await redisClient.lRange(key, 0, -1);
+    if (items) {
+        return items.map(item => JSON.parse(item));
     }
     // Fallback: if not in Redis, try MongoDB
     const conversation = await Conversation.findOne({ conversationKey: key });
@@ -19,7 +20,8 @@ async function getConversation(key) {
 async function saveConversation(key, channelId, threadTs, messages) {
     // Save the last 5 messages to Redis
     const truncatedMessages = messages.slice(-5);
-    await redisClient.set(key, JSON.stringify(truncatedMessages));
+    await redisClient.rPush(key, JSON.stringify(truncatedMessages));
+    await redisClient.expire(key, 60 * 30);
 
     // Upsert the conversation in MongoDB
     await Conversation.findOneAndUpdate(
