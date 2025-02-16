@@ -29,7 +29,7 @@ async function saveConversation(key, channelId, threadTs, messages) {
             conversationKey: key,
             channelId,
             threadTs,
-            messages: truncatedMessages,
+            messages: messages,
         },
         { upsert: true, new: true }
     );
