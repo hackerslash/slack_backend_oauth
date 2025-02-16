@@ -11,7 +11,7 @@ async function addMessageToConversation(key, message) {
     // Push new message to head of list and trim to last 5 messages
     await redisClient.lPush(key, JSON.stringify(message));
     await redisClient.lTrim(key, 0, 9); // Keep only first 5 conversation pairs
-    await redisClient.expire(key, ttl);
+    await redisClient.expire(key, 3600);
 }
 
 module.exports = {
