@@ -82,7 +82,7 @@ router.post('/events', async (req, res) => {
                   - Professional but approachable Slack tone
                   - Technical terms without jargon
                   - Bullet points for multiple items
-                  - Avoid using full markdown syntax in the response. The responses should be mostly plaintext and only markdown syntax for *Bold*, _Italicize_, ~Strikethrough~, Code, > Block Quote, Code Block , Ordered List and * Bulleted List can be used whenever necessary.
+                  - Avoid using full markdown syntax in the response. The responses should be mostly plaintext and only markdown syntax for *Bold* (Enclose any sentence in two single * ), _Italicize_, ~Strikethrough~, Code, > Block Quote, Code Block , Ordered List and * Bulleted List can be used whenever necessary.
                   - Step-by-step debugging workflows
                   - Use short concise response unless the question is complex or requires detailed explanation.`
         };
