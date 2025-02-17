@@ -11,6 +11,7 @@ Made as per the requirement of recruitment assignment of Doctor Droid. A YC back
 - [Project Structure](#project-structure)
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
+- [Local Setup](#local-setup)
 - [Configuration](#configuration)
 - [Running the App](#running-the-app)
 - [Slack App Manifest](#slack-app-manifest)
@@ -68,11 +69,9 @@ slack-backend-oauth/
 
 ## Installation
 
-### Option 1:
-
 <a href="https://slack.com/oauth/v2/authorize?client_id=8445300914516.8453525842965&scope=app_mentions:read,chat:write&user_scope="><img alt="Add to Slack" height="40" width="139" src="https://platform.slack-edge.com/img/add_to_slack.png" srcSet="https://platform.slack-edge.com/img/add_to_slack.png 1x, https://platform.slack-edge.com/img/add_to_slack@2x.png 2x" /></a>
 
-### Option 2:
+## Local Setup
 
 
 
