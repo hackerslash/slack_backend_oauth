@@ -12,13 +12,17 @@ async function getConversation(key) {
     // Fallback: if not in Redis, try MongoDB
     const conversation = await Conversation.findOne({ conversationKey: key });
     if (conversation) {
-        console.log('Conversation data hit from MongoDB');
-        const lastMessages = conversation.messages.slice(-10);
-        for (const message of lastMessages) {
-            await redisClient.rPush(key, JSON.stringify(message));
+
+        if (conversation.messages.length > 1) {
+            console.log('Conversation data hit from MongoDB');
+
+            const lastMessages = conversation.messages.slice(-10);
+            for (const message of lastMessages) {
+                await redisClient.rPush(key, JSON.stringify(message));
+            }
+            await redisClient.expire(key, 3600);
+            return lastMessages;
         }
-        await redisClient.expire(key, 3600);
-        return lastMessages;
     } else {
         return [];
     }
